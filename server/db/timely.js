@@ -1,5 +1,11 @@
-import Database from 'better-sqlite3';
 import path from 'path';
+
+let Database = null;
+try {
+  Database = (await import('better-sqlite3')).default;
+} catch {
+  console.warn('better-sqlite3 not available — Timely features disabled');
+}
 
 const DB_PATH = process.env.TIMELY_DB_PATH ||
   path.join(process.env.LOCALAPPDATA || '', 'TimelyApp', 'Memory', 'data', 'db.sqlite');
@@ -7,6 +13,7 @@ const DB_PATH = process.env.TIMELY_DB_PATH ||
 let db = null;
 
 function getDb() {
+  if (!Database) return null;
   if (!db) {
     try {
       db = new Database(DB_PATH, { readonly: true, fileMustExist: true });
