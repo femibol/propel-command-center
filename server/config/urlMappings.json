@@ -1,0 +1,23 @@
+{
+  "patterns": [
+    { "domain": "unitedservicesassociation.acumatica.com", "boardShort": "USA", "client": "United Services Association" },
+    { "domain": "plainandfancy.acumatica.com", "boardShort": "PNF", "client": "Plain & Fancy" },
+    { "domain": "wolverine.acumatica.com", "boardShort": "WLV", "client": "Wolverine Ind." },
+    { "domain": "worldsbestcheese.acumatica.com", "boardShort": "WBC", "client": "World's Best Cheeses" },
+    { "domain": "attainment.acumatica.com", "boardShort": "ATT", "client": "Attainment Company" },
+    { "domain": "sharpline.acumatica.com", "boardShort": "SHP", "client": "Sharpline Converting" },
+    { "domain": "econopak.acumatica.com", "boardShort": "EPK", "client": "Econo-Pak" },
+    { "domain": "baronfrancois.acumatica.com", "boardShort": "BFR", "client": "Baron Francois" },
+    { "domain": "olympuspower.acumatica.com", "boardShort": "OLY", "client": "Olympus Power" },
+    { "domain": "mara.acumatica.com", "boardShort": "MAR", "client": "Mara Technologies" }
+  ],
+  "appCategories": {
+    "Claude": "AI/Research",
+    "Microsoft Teams": "Meetings",
+    "Microsoft Excel": "Data Work",
+    "ReportDesigner": "Reports",
+    "Snagit Editor": "Documentation",
+    "Visual Studio Code": "Development",
+    "Windows Explorer": "File Management"
+  }
+}

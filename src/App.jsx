@@ -1,0 +1,63 @@
+import React from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from './contexts/ToastContext';
+import Sidebar from './components/Sidebar';
+import GlobalSearch from './components/GlobalSearch';
+import SweepPage from './pages/SweepPage';
+import StalePage from './pages/StalePage';
+import WaitingPage from './pages/WaitingPage';
+import PlannerPage from './pages/PlannerPage';
+import CPCheckPage from './pages/CPCheckPage';
+import TimeEntryPage from './pages/TimeEntryPage';
+import DailyTasksPage from './pages/DailyTasksPage';
+import NotificationsPage from './pages/NotificationsPage';
+import SettingsPage from './pages/SettingsPage';
+import { useSweepData } from './hooks/useBoards';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      refetchOnWindowFocus: true,
+    },
+  },
+});
+
+function AppLayout() {
+  const { counts } = useSweepData();
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-[#0F1117]">
+      <Sidebar counts={counts} />
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="px-5 py-2 border-b border-[#2E3348] bg-[#0F1117] flex justify-end">
+          <GlobalSearch />
+        </div>
+        <Routes>
+          <Route path="/" element={<SweepPage />} />
+          <Route path="/stale" element={<StalePage />} />
+          <Route path="/waiting" element={<WaitingPage />} />
+          <Route path="/planner" element={<PlannerPage />} />
+          <Route path="/cp-check" element={<CPCheckPage />} />
+          <Route path="/time-entry" element={<TimeEntryPage />} />
+          <Route path="/daily" element={<DailyTasksPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+        </Routes>
+      </main>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>
+        <BrowserRouter>
+          <AppLayout />
+        </BrowserRouter>
+      </ToastProvider>
+    </QueryClientProvider>
+  );
+}
