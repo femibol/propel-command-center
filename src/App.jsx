@@ -12,6 +12,8 @@ import CPCheckPage from './pages/CPCheckPage';
 import TimeEntryPage from './pages/TimeEntryPage';
 import DailyTasksPage from './pages/DailyTasksPage';
 import NotificationsPage from './pages/NotificationsPage';
+import QuickWinsPage from './pages/QuickWinsPage';
+import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
 import { useSweepData } from './hooks/useBoards';
 
@@ -35,7 +37,9 @@ function AppLayout() {
           <GlobalSearch />
         </div>
         <Routes>
-          <Route path="/" element={<SweepPage />} />
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/sweep" element={<SweepPage />} />
+          <Route path="/quick-wins" element={<QuickWinsPage />} />
           <Route path="/stale" element={<StalePage />} />
           <Route path="/waiting" element={<WaitingPage />} />
           <Route path="/planner" element={<PlannerPage />} />

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useSweepData } from '../hooks/useBoards';
 import SummaryBar from '../components/SummaryBar';
+import AIInsightsPanel from '../components/AIInsightsPanel';
 import ClientGroup from '../components/ClientGroup';
 import SkeletonGroup from '../components/SkeletonGroup';
 import { ACTIVE_BOARDS } from '../utils/constants';
@@ -104,7 +105,10 @@ export default function SweepPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-1">
+      <div className="flex-1 overflow-y-auto p-5 space-y-3">
+        {/* AI Insights */}
+        {!isLoading && <AIInsightsPanel />}
+
         {isLoading ? (
           <div className="space-y-1">
             {Array.from({ length: 4 }).map((_, i) => (
