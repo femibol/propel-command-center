@@ -412,6 +412,8 @@ export function buildTimesheetRows(matched, unmatched) {
         clientShort: block.matchedClientShort || '???',
         projectName: block.matchedTask?.name || block.matchedClient || 'Unknown',
         parentName: block.matchedTask?._parentName || '',
+        // Accumulate raw MINUTES first to avoid rounding-per-block loss
+        _rawMinutes: { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0 },
         hours: { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0 },
         sources: [],
         isManual: false,
@@ -421,16 +423,18 @@ export function buildTimesheetRows(matched, unmatched) {
     // Determine day of week
     const dayOfWeek = getDayOfWeek(block.day);
     if (dayOfWeek) {
-      rows[key].hours[dayOfWeek] += block.durationHours;
+      // Accumulate raw minutes (not pre-rounded hours) to prevent rounding loss
+      rows[key]._rawMinutes[dayOfWeek] += block.durationMinutes;
       rows[key].sources.push(block);
     }
   }
 
-  // Round hours to nearest 0.25
+  // Convert minutes to hours and round ONCE to nearest 0.25
   for (const row of Object.values(rows)) {
     for (const day of ['mon', 'tue', 'wed', 'thu', 'fri']) {
-      row.hours[day] = Math.round(row.hours[day] * 4) / 4;
+      row.hours[day] = Math.round((row._rawMinutes[day] / 60) * 4) / 4;
     }
+    delete row._rawMinutes; // clean up internal field
   }
 
   return {
