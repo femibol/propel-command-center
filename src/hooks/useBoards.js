@@ -6,6 +6,7 @@ import {
   filterStaleItems,
   filterWaitingItems,
   filterCPMissing,
+  filterQuickWins,
   sortByPriority,
   getColumnText,
 } from '../utils/helpers';
@@ -72,6 +73,7 @@ export function useSweepData() {
   const stale = filterStaleItems(allSubitems);
   const waiting = filterWaitingItems(allSubitems);
   const cpMissing = filterCPMissing(allSubitems);
+  const quickWins = filterQuickWins(allSubitems);
 
   // Group active items by client
   const byClient = {};
@@ -93,6 +95,7 @@ export function useSweepData() {
     stale,
     waiting,
     cpMissing,
+    quickWins,
     byClient,
     highPriority,
     counts: {
@@ -101,6 +104,7 @@ export function useSweepData() {
       waiting: waiting.length,
       stale: stale.length,
       cpMissing: cpMissing.length,
+      quickWins: quickWins.length,
     },
   };
 }
