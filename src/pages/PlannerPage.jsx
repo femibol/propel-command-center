@@ -4,26 +4,7 @@ import { useSweepData } from '../hooks/useBoards';
 import SubitemRow from '../components/SubitemRow';
 import { getColumnText, isWithinWeek, isActive } from '../utils/helpers';
 import { SUBITEM_COLUMNS } from '../utils/constants';
-
-function getWeekDates(offset = 0) {
-  const now = new Date();
-  const dayOfWeek = now.getDay();
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) + offset * 7);
-  monday.setHours(0, 0, 0, 0);
-
-  const days = [];
-  for (let i = 0; i < 5; i++) {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    days.push(d);
-  }
-
-  const friday = new Date(days[4]);
-  friday.setHours(23, 59, 59, 999);
-
-  return { monday, friday, days };
-}
+import { getWeekDates } from '../components/timeentry/WeekNavigator';
 
 function formatWeekHeader(date) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -37,15 +18,15 @@ export default function PlannerPage() {
   const [weekOffset, setWeekOffset] = useState(0);
   const { myActive, isLoading } = useSweepData();
 
-  const { monday, friday, days } = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
+  const { monday, sunday, days } = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
 
   // Items with est_wip overlapping this week
   const scheduled = useMemo(() => {
     return (myActive || []).filter((sub) => {
       const wip = sub.column_values?.find?.((c) => c.id === SUBITEM_COLUMNS.EST_WIP)?.value;
-      return isWithinWeek(wip, monday, friday);
+      return isWithinWeek(wip, monday, sunday);
     });
-  }, [myActive, monday, friday]);
+  }, [myActive, monday, sunday]);
 
   // Active items without est_wip
   const unscheduled = useMemo(() => {
@@ -67,8 +48,8 @@ export default function PlannerPage() {
           >
             <ChevronLeft size={16} />
           </button>
-          <span className="text-sm text-[#E8E9ED] font-mono min-w-[160px] text-center">
-            {formatWeekHeader(monday)} – {formatWeekHeader(friday)}
+          <span className="text-sm text-[#E8E9ED] font-mono min-w-[180px] text-center">
+            {formatWeekHeader(monday)} – {formatWeekHeader(sunday)}
           </span>
           <button
             onClick={() => setWeekOffset((w) => w + 1)}

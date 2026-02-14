@@ -9,16 +9,16 @@ export function getWeekDates(offset = 0) {
   monday.setHours(0, 0, 0, 0);
 
   const days = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 7; i++) {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
     days.push(d);
   }
 
-  const friday = new Date(days[4]);
-  friday.setHours(23, 59, 59, 999);
+  const sunday = new Date(days[6]);
+  sunday.setHours(23, 59, 59, 999);
 
-  return { monday, friday, days };
+  return { monday, sunday, days };
 }
 
 export function formatDateISO(date) {
@@ -30,7 +30,7 @@ function formatWeekHeader(date) {
 }
 
 export default function WeekNavigator({ weekOffset, onWeekChange }) {
-  const { monday, friday } = getWeekDates(weekOffset);
+  const { monday, sunday } = getWeekDates(weekOffset);
 
   return (
     <div className="flex items-center gap-2">
@@ -40,8 +40,8 @@ export default function WeekNavigator({ weekOffset, onWeekChange }) {
       >
         <ChevronLeft size={16} />
       </button>
-      <span className="text-sm text-[#E8E9ED] font-mono min-w-[160px] text-center">
-        {formatWeekHeader(monday)} – {formatWeekHeader(friday)}
+      <span className="text-sm text-[#E8E9ED] font-mono min-w-[180px] text-center">
+        {formatWeekHeader(monday)} – {formatWeekHeader(sunday)}
       </span>
       <button
         onClick={() => onWeekChange(weekOffset + 1)}

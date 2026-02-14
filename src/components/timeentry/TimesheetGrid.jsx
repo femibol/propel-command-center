@@ -4,11 +4,13 @@ import TimesheetCell from './TimesheetCell';
 import TaskRowHeader from './TaskRowHeader';
 
 const DAYS = [
-  { key: 'mon', label: 'Mon' },
-  { key: 'tue', label: 'Tue' },
-  { key: 'wed', label: 'Wed' },
-  { key: 'thu', label: 'Thu' },
-  { key: 'fri', label: 'Fri' },
+  { key: 'mon', label: 'Mon', weekend: false },
+  { key: 'tue', label: 'Tue', weekend: false },
+  { key: 'wed', label: 'Wed', weekend: false },
+  { key: 'thu', label: 'Thu', weekend: false },
+  { key: 'fri', label: 'Fri', weekend: false },
+  { key: 'sat', label: 'Sat', weekend: true },
+  { key: 'sun', label: 'Sun', weekend: true },
 ];
 
 function ActivityDetail({ sources }) {
@@ -86,6 +88,8 @@ function ActivityDetail({ sources }) {
   );
 }
 
+const GRID_COLS = 'grid-cols-[1fr_repeat(7,52px)_56px]';
+
 export default function TimesheetGrid({ rows, totals, weekDays, onSetHours, onRemoveRow }) {
   const [expandedRow, setExpandedRow] = useState(null);
 
@@ -96,11 +100,11 @@ export default function TimesheetGrid({ rows, totals, weekDays, onSetHours, onRe
   return (
     <div className="border border-[#2E3348] rounded-lg overflow-hidden">
       {/* Header */}
-      <div className="grid grid-cols-[1fr_repeat(5,64px)_60px] bg-[#1A1D27] border-b border-[#2E3348] text-xs font-medium text-[#8B8FA3]">
+      <div className={`grid ${GRID_COLS} bg-[#1A1D27] border-b border-[#2E3348] text-xs font-medium text-[#8B8FA3]`}>
         <div className="px-3 py-2">Client / Task</div>
         {DAYS.map((d, i) => (
-          <div key={d.key} className="px-1 py-2 text-center">
-            <div>{d.label}</div>
+          <div key={d.key} className={`px-1 py-2 text-center ${d.weekend ? 'bg-purple-500/5' : ''}`}>
+            <div className={d.weekend ? 'text-purple-400/70' : ''}>{d.label}</div>
             {weekDays?.[i] && (
               <div className="text-[10px] text-[#5C6178] font-mono">
                 {weekDays[i].getDate()}
@@ -125,7 +129,7 @@ export default function TimesheetGrid({ rows, totals, weekDays, onSetHours, onRe
             return (
               <div key={row.id}>
                 <div
-                  className={`grid grid-cols-[1fr_repeat(5,64px)_60px] border-b border-[#2E3348]/50 hover:bg-[#242836]/30 transition-colors ${isExpanded ? 'bg-[#242836]/20' : ''}`}
+                  className={`grid ${GRID_COLS} border-b border-[#2E3348]/50 hover:bg-[#242836]/30 transition-colors ${isExpanded ? 'bg-[#242836]/20' : ''}`}
                 >
                   <div
                     className="px-3 py-1.5 flex items-center gap-1.5 cursor-pointer"
@@ -139,7 +143,7 @@ export default function TimesheetGrid({ rows, totals, weekDays, onSetHours, onRe
                     </div>
                   </div>
                   {DAYS.map(d => (
-                    <div key={d.key} className="px-1 py-1">
+                    <div key={d.key} className={`px-0.5 py-1 ${d.weekend ? 'bg-purple-500/5' : ''}`}>
                       <TimesheetCell
                         value={row.hours[d.key] || 0}
                         onChange={(val) => onSetHours(row.id, d.key, val)}
@@ -172,7 +176,7 @@ export default function TimesheetGrid({ rows, totals, weekDays, onSetHours, onRe
                 return (
                   <div key={row.id}>
                     <div
-                      className={`grid grid-cols-[1fr_repeat(5,64px)_60px] border-b border-[#2E3348]/30 opacity-60 hover:opacity-100 transition-opacity cursor-pointer ${isExpanded ? 'opacity-100 bg-[#242836]/20' : ''}`}
+                      className={`grid ${GRID_COLS} border-b border-[#2E3348]/30 opacity-60 hover:opacity-100 transition-opacity cursor-pointer ${isExpanded ? 'opacity-100 bg-[#242836]/20' : ''}`}
                       onClick={() => setExpandedRow(isExpanded ? null : row.id)}
                     >
                       <div className="px-3 py-1 flex items-center gap-1.5">
@@ -184,7 +188,7 @@ export default function TimesheetGrid({ rows, totals, weekDays, onSetHours, onRe
                         </div>
                       </div>
                       {DAYS.map(d => (
-                        <div key={d.key} className="px-1 py-1">
+                        <div key={d.key} className={`px-0.5 py-1 ${d.weekend ? 'bg-purple-500/5' : ''}`}>
                           <TimesheetCell
                             value={row.hours[d.key] || 0}
                             onChange={(val) => onSetHours(row.id, d.key, val)}
@@ -208,10 +212,10 @@ export default function TimesheetGrid({ rows, totals, weekDays, onSetHours, onRe
       )}
 
       {/* Totals row */}
-      <div className="grid grid-cols-[1fr_repeat(5,64px)_60px] bg-[#1A1D27] border-t border-[#2E3348] text-sm font-semibold">
+      <div className={`grid ${GRID_COLS} bg-[#1A1D27] border-t border-[#2E3348] text-sm font-semibold`}>
         <div className="px-3 py-2 text-[#8B8FA3] uppercase text-xs tracking-wide">Daily Totals</div>
         {DAYS.map(d => (
-          <div key={d.key} className="px-1 py-2 text-center font-mono text-accent">
+          <div key={d.key} className={`px-1 py-2 text-center font-mono text-accent ${d.weekend ? 'bg-purple-500/5' : ''}`}>
             {(totals[d.key] || 0) > 0 ? totals[d.key].toFixed(1) : '—'}
           </div>
         ))}

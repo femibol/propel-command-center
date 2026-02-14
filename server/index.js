@@ -6,7 +6,7 @@ import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 import timelyRoutes from './routes/timely.js';
 import aiRoutes from './routes/ai.js';
-import boardRoutes from './routes/boards.js';
+import boardRoutes, { fetchAllBoards, cache as boardCache } from './routes/boards.js';
 
 dotenv.config();
 
@@ -96,4 +96,22 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`PROPEL server running on port ${PORT} (${isProduction ? 'production' : 'development'})`);
+
+  // Pre-warm board cache so first page load is instant
+  const token = process.env.VITE_MONDAY_API_TOKEN;
+  if (token) {
+    const t0 = Date.now();
+    console.log('[startup] Pre-warming board cache...');
+    fetchAllBoards(token)
+      .then((data) => {
+        boardCache.data = data;
+        boardCache.timestamp = Date.now();
+        console.log(`[startup] Board cache pre-warmed in ${Date.now() - t0}ms (${data.allSubitems?.length || 0} subitems)`);
+      })
+      .catch((err) => {
+        console.warn('[startup] Board cache pre-warm failed:', err.message);
+      });
+  } else {
+    console.warn('[startup] No MONDAY_API_TOKEN — skipping cache pre-warm');
+  }
 });

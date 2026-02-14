@@ -1,9 +1,13 @@
 import { useReducer, useCallback } from 'react';
 
-const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri'];
+const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+function emptyHours() {
+  return { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0, sun: 0 };
+}
 
 function calculateTotals(rows) {
-  const totals = { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, total: 0 };
+  const totals = { ...emptyHours(), total: 0 };
   for (const row of rows) {
     for (const day of DAYS) {
       totals[day] += row.hours[day] || 0;
@@ -54,11 +58,11 @@ function timesheetReducer(state, action) {
         clientShort: clientShort || task?._clientShort || '???',
         projectName: task?.name || 'New Task',
         parentName: task?._parentName || '',
-        hours: { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0 },
+        hours: emptyHours(),
         sources: [],
         isManual: true,
         isModified: false,
-        originalHours: { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0 },
+        originalHours: emptyHours(),
       };
       const rows = [...state.rows, newRow];
       return { ...state, rows, totals: calculateTotals(rows) };
@@ -90,7 +94,7 @@ function timesheetReducer(state, action) {
       return {
         rows: [],
         unmatched: [],
-        totals: { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, total: 0 },
+        totals: { ...emptyHours(), total: 0 },
         initialized: false,
       };
     }
@@ -103,7 +107,7 @@ function timesheetReducer(state, action) {
 function getDayFromDate(dateStr) {
   const date = new Date(dateStr + 'T12:00:00');
   const day = date.getDay();
-  const map = { 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri' };
+  const map = { 0: 'sun', 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat' };
   return map[day] || null;
 }
 
@@ -111,7 +115,7 @@ export function useTimesheetReducer() {
   const [state, dispatch] = useReducer(timesheetReducer, {
     rows: [],
     unmatched: [],
-    totals: { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, total: 0 },
+    totals: { ...emptyHours(), total: 0 },
     initialized: false,
   });
 

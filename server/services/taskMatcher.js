@@ -413,8 +413,8 @@ export function buildTimesheetRows(matched, unmatched) {
         projectName: block.matchedTask?.name || block.matchedClient || 'Unknown',
         parentName: block.matchedTask?._parentName || '',
         // Accumulate raw MINUTES first to avoid rounding-per-block loss
-        _rawMinutes: { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0 },
-        hours: { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0 },
+        _rawMinutes: { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0, sun: 0 },
+        hours: { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0, sun: 0 },
         sources: [],
         isManual: false,
       };
@@ -431,7 +431,7 @@ export function buildTimesheetRows(matched, unmatched) {
 
   // Convert minutes to hours and round ONCE to nearest 0.25
   for (const row of Object.values(rows)) {
-    for (const day of ['mon', 'tue', 'wed', 'thu', 'fri']) {
+    for (const day of ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']) {
       row.hours[day] = Math.round((row._rawMinutes[day] / 60) * 4) / 4;
     }
     delete row._rawMinutes; // clean up internal field
@@ -446,6 +446,6 @@ export function buildTimesheetRows(matched, unmatched) {
 function getDayOfWeek(dateStr) {
   const date = new Date(dateStr + 'T12:00:00');
   const day = date.getDay();
-  const map = { 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri' };
+  const map = { 0: 'sun', 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat' };
   return map[day] || null;
 }

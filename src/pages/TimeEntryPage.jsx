@@ -24,9 +24,9 @@ export default function TimeEntryPage() {
     setPageContext({ page: 'time-entry', data: 'Time entry and Timely matching' });
   }, [setPageContext]);
 
-  const { monday, friday, days } = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
+  const { monday, sunday, days } = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   const startDate = formatDateISO(monday);
-  const endDate = formatDateISO(friday);
+  const endDate = formatDateISO(sunday);
 
   const { myActive } = useSweepData();
   const timeBlocksQuery = useTimeBlocks(startDate, endDate);

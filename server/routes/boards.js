@@ -212,4 +212,5 @@ router.post('/invalidate', (req, res) => {
   res.json({ success: true, message: 'Board cache invalidated' });
 });
 
+export { fetchAllBoards, cache };
 export default router;
