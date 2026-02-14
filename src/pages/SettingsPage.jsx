@@ -247,11 +247,11 @@ export default function SettingsPage() {
       <div className="bg-[#1A1D27] border border-[#2E3348] rounded-lg p-5 space-y-2">
         <h3 className="text-sm font-semibold text-[#E8E9ED]">About</h3>
         <p className="text-xs text-[#8B8FA3]">
-          PROPEL Command Center v3.0 — Built for NetAtWork ERP consulting workflow.
+          PROPEL Command Center v3.5 — AI Coach Edition.
         </p>
         <p className="text-xs text-[#5C6178]">
           Consolidates Monday.com PROPEL boards into a single task management dashboard
-          with Timely time tracking integration, AI-powered suggestions, and automated time entry.
+          with Timely time tracking integration, AI Coach (streaming), proactive nudges, morning briefings, and automated time entry.
         </p>
       </div>
     </div>

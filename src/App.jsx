@@ -2,8 +2,11 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from './contexts/ToastContext';
+import { AICoachProvider } from './contexts/AICoachContext';
 import Sidebar from './components/Sidebar';
 import GlobalSearch from './components/GlobalSearch';
+import AICoachPanel from './components/AICoachPanel';
+import AccountabilityBar from './components/AccountabilityBar';
 import SweepPage from './pages/SweepPage';
 import StalePage from './pages/StalePage';
 import WaitingPage from './pages/WaitingPage';
@@ -32,10 +35,11 @@ function AppLayout() {
   return (
     <div className="flex h-screen overflow-hidden bg-[#0F1117]">
       <Sidebar counts={counts} />
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden pb-10">
         <div className="px-5 py-2 border-b border-[#2E3348] bg-[#0F1117] flex justify-end">
           <GlobalSearch />
         </div>
+        <AccountabilityBar />
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/sweep" element={<SweepPage />} />
@@ -50,6 +54,7 @@ function AppLayout() {
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </main>
+      <AICoachPanel />
     </div>
   );
 }
@@ -58,9 +63,11 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <BrowserRouter>
-          <AppLayout />
-        </BrowserRouter>
+        <AICoachProvider>
+          <BrowserRouter>
+            <AppLayout />
+          </BrowserRouter>
+        </AICoachProvider>
       </ToastProvider>
     </QueryClientProvider>
   );

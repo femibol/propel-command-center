@@ -1,12 +1,23 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useSweepData } from '../hooks/useBoards';
+import { useAICoach } from '../contexts/AICoachContext';
 import SubitemRow from '../components/SubitemRow';
+import NudgeBanner from '../components/NudgeBanner';
 import SkeletonGroup from '../components/SkeletonGroup';
 import { getColumnText, getWaitingOn, daysSince } from '../utils/helpers';
 import { SUBITEM_COLUMNS, FOLLOWUP_OVERDUE_DAYS } from '../utils/constants';
 
 export default function WaitingPage() {
   const { waiting, isLoading } = useSweepData();
+  const { setPageContext } = useAICoach();
+
+  useEffect(() => {
+    const overdueCount = (waiting || []).filter(s => daysSince(s.updated_at) >= FOLLOWUP_OVERDUE_DAYS).length;
+    setPageContext({
+      page: 'waiting',
+      data: `${waiting?.length || 0} waiting items, ${overdueCount} overdue for follow-up`,
+    });
+  }, [waiting, setPageContext]);
 
   // Group by waiting type
   const groups = {};
@@ -36,6 +47,7 @@ export default function WaitingPage() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
+      <NudgeBanner page="waiting" />
       <div className="px-5 py-4 border-b border-[#2E3348] bg-[#1A1D27] flex items-center justify-between">
         <div>
           <h2 className="text-base font-semibold text-[#E8E9ED]">Waiting / Blocked Items</h2>

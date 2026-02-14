@@ -4,15 +4,22 @@ import WeekNavigator, { getWeekDates, formatDateISO } from '../components/timeen
 import TimesheetGrid from '../components/timeentry/TimesheetGrid';
 import UnmatchedBlocks from '../components/timeentry/UnmatchedBlocks';
 import ActivityTimeline from '../components/timeentry/ActivityTimeline';
+import NudgeBanner from '../components/NudgeBanner';
 import { useMatchedBlocks, useTimeBlocks } from '../hooks/useTimeEntry';
 import { useTimesheetReducer } from '../hooks/useTimesheetReducer';
 import { useSweepData } from '../hooks/useBoards';
+import { useAICoach } from '../contexts/AICoachContext';
 import { useToast } from '../contexts/ToastContext';
 
 export default function TimeEntryPage() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [generating, setGenerating] = useState(false);
   const { addToast } = useToast();
+  const { setPageContext } = useAICoach();
+
+  useEffect(() => {
+    setPageContext({ page: 'time-entry', data: 'Time entry and Timely matching' });
+  }, [setPageContext]);
 
   const { monday, friday, days } = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   const startDate = formatDateISO(monday);
@@ -72,6 +79,7 @@ export default function TimeEntryPage() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
+      <NudgeBanner page="time-entry" />
       {/* Header */}
       <div className="px-5 py-4 border-b border-[#2E3348] bg-[#1A1D27] flex items-center gap-4">
         <h2 className="text-base font-semibold text-[#E8E9ED]">Time Entry</h2>
