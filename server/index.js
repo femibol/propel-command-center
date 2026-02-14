@@ -6,6 +6,7 @@ import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 import timelyRoutes from './routes/timely.js';
 import aiRoutes from './routes/ai.js';
+import boardRoutes from './routes/boards.js';
 
 dotenv.config();
 
@@ -66,6 +67,7 @@ app.post('/api/settings/test-ai', async (req, res) => {
 });
 
 // API Routes
+app.use('/api/boards', boardRoutes);
 app.use('/api/timely', timelyRoutes);
 app.use('/api/ai', aiRoutes);
 
