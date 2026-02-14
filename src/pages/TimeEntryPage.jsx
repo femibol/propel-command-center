@@ -27,12 +27,15 @@ export default function TimeEntryPage() {
     initialize, setHours, addRow, removeRow, assignUnmatched, clear,
   } = useTimesheetReducer();
 
-  // Auto-initialize when matched data arrives
+  // Auto-initialize when matched data arrives (auto-populate on page load)
   useEffect(() => {
-    if (matchedQuery.data?.timesheet && !initialized) {
+    if (matchedQuery.data?.timesheet && !initialized && !matchedQuery.isLoading) {
       initialize(matchedQuery.data.timesheet);
+      if (matchedQuery.data.timesheet.rows?.length > 0) {
+        addToast(`Auto-loaded ${matchedQuery.data.timesheet.rows.length} rows from Timely`, 'success');
+      }
     }
-  }, [matchedQuery.data, initialized, initialize]);
+  }, [matchedQuery.data, matchedQuery.isLoading, initialized, initialize, addToast]);
 
   // Reset when week changes
   useEffect(() => {
@@ -116,12 +119,19 @@ export default function TimeEntryPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
-        {isLoading && !initialized ? (
+        {(isLoading || !myActive) && !initialized ? (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
               <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-sm text-[#8B8FA3]">Analyzing Timely activity data...</p>
-              <p className="text-xs text-[#5C6178] mt-1">Aggregating time blocks and matching to tasks</p>
+              <p className="text-sm text-[#8B8FA3]">
+                {!myActive ? 'Loading Monday.com task data...' :
+                 matchedQuery.isLoading ? 'Matching Timely blocks to tasks...' :
+                 'Analyzing Timely activity data...'}
+              </p>
+              <p className="text-xs text-[#5C6178] mt-1">
+                {!myActive ? 'Fetching active subitems from 10 boards' :
+                 'Aggregating time blocks and building timesheet'}
+              </p>
             </div>
           </div>
         ) : (

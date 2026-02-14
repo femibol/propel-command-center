@@ -59,18 +59,22 @@ export function getTimelySettings() {
 
 export function getEntryStats() {
   const conn = getDb();
-  if (!conn) return { count: 0, connected: false };
+  if (!conn) return { connected: false, totalEntries: 0 };
 
   const countRow = conn.prepare('SELECT COUNT(*) as count FROM captured_entries').get();
   const minRow = conn.prepare('SELECT MIN(date(captured_at_utc)) as min_date FROM captured_entries').get();
   const maxRow = conn.prepare('SELECT MAX(date(captured_at_utc)) as max_date FROM captured_entries').get();
+  const appsRow = conn.prepare('SELECT COUNT(DISTINCT app_name) as app_count FROM captured_entries').get();
 
   return {
     connected: true,
-    count: countRow.count,
-    minDate: minRow.min_date,
-    maxDate: maxRow.max_date,
+    totalEntries: countRow.count,
+    dateRange: {
+      earliest: minRow.min_date,
+      latest: maxRow.max_date,
+    },
     dbPath: DB_PATH,
+    distinctApps: appsRow.app_count,
   };
 }
 

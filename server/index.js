@@ -26,7 +26,12 @@ app.use(express.json({ limit: '10mb' }));
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), env: isProduction ? 'production' : 'development' });
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    env: isProduction ? 'production' : 'development',
+    ai: !!(process.env.ANTHROPIC_API_KEY || process.env.VITE_ANTHROPIC_API_KEY),
+  });
 });
 
 // API Routes
