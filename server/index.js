@@ -33,17 +33,19 @@ app.get('/api/health', (req, res) => {
 app.use('/api/timely', timelyRoutes);
 app.use('/api/ai', aiRoutes);
 
-// Serve static frontend in production
+// Serve static frontend when dist/ exists (production)
 const distPath = join(__dirname, '..', 'dist');
+const indexHtml = join(distPath, 'index.html');
 if (existsSync(distPath)) {
   app.use(express.static(distPath));
   // SPA fallback — serve index.html for any non-API route
-  app.get('*', (req, res) => {
-    res.sendFile(join(distPath, 'index.html'));
+  // Express 5 requires {*path} syntax for wildcard catch-all
+  app.get('/{*path}', (req, res) => {
+    res.sendFile(indexHtml);
   });
 } else if (isProduction) {
   console.warn('WARNING: dist/ folder not found. Run "npm run build" first.');
-  app.get('*', (req, res) => {
+  app.get('/{*path}', (req, res) => {
     res.status(503).json({ error: 'Frontend not built. Run npm run build.' });
   });
 }

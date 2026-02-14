@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: propel-command-center
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: NODE_ENV=production node server/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_MONDAY_API_TOKEN
+        sync: false
+      - key: VITE_MONDAY_ACCOUNT_SLUG
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
