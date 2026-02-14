@@ -268,23 +268,47 @@ Return a structured JSON response with format:
   }
 });
 
-// AI-assisted matching for unmatched blocks
+// AI-assisted matching for unmatched blocks (haiku for speed)
 router.post('/match-review', async (req, res) => {
   try {
     const { unmatchedBlocks, availableTasks } = req.body;
     const client = getClient();
 
-    const systemPrompt = `You are helping match time tracking entries to project tasks. Given unmatched screen activity blocks and a list of available tasks, suggest the best task match for each block.
+    // Compact block summaries to minimize tokens
+    const blocks = (unmatchedBlocks || []).slice(0, 30).map(b => ({
+      id: b.id,
+      app: b.app,
+      title: b.title,
+      url: b.url || null,
+      category: b.category,
+      mins: Math.round(b.durationMinutes),
+    }));
 
-Return JSON: { "matches": [{ "blockId": "...", "suggestedTaskId": "...", "reason": "..." }] }`;
+    const tasks = (availableTasks || []).slice(0, 40).map(t => ({
+      id: t.id,
+      name: t.name,
+      client: t._clientShort || t._clientName,
+      parent: t._parentName,
+    }));
+
+    const systemPrompt = `You match screen activity blocks to ERP consulting tasks. Femi is a Senior Acumatica ERP consultant managing multiple client PROPEL implementations.
+
+MATCHING RULES:
+- Acumatica URLs/screens → match to that client's tasks
+- Client names in window titles → match to that client
+- Generic tools (Teams, Claude, Excel) working on client data → match by context clues in title
+- General admin/internal work → assign to "General" with id "GENERAL"
+- If truly unmatchable (personal browsing, breaks) → assign to "SKIP" with id "SKIP"
+
+Return ONLY valid JSON: {"matches":[{"blockId":"...","taskId":"...","client":"...","reason":"brief reason"}]}`;
 
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 1024,
+      model: 'claude-haiku-4-5-20250929',
+      max_tokens: 1500,
       system: systemPrompt,
       messages: [{
         role: 'user',
-        content: `Unmatched blocks:\n${JSON.stringify(unmatchedBlocks?.slice(0, 20))}\n\nAvailable tasks:\n${JSON.stringify(availableTasks?.slice(0, 30))}`,
+        content: `UNMATCHED BLOCKS:\n${JSON.stringify(blocks)}\n\nAVAILABLE TASKS:\n${JSON.stringify(tasks)}`,
       }],
     });
 
@@ -301,6 +325,78 @@ Return JSON: { "matches": [{ "blockId": "...", "suggestedTaskId": "...", "reason
     }
   } catch (err) {
     console.error('AI match-review error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ───────── Generate Billing Time Log ─────────
+router.post('/time-log', async (req, res) => {
+  try {
+    const { rows, weekStart } = req.body;
+    const client = getClient();
+
+    // Build row summaries with sources (activity details)
+    const rowSummaries = (rows || []).map(r => {
+      const total = Object.values(r.hours || {}).reduce((s, h) => s + h, 0);
+      if (total === 0) return null;
+
+      // Gather activity context from sources
+      const activities = (r.sources || []).map(s => ({
+        app: s.app,
+        title: s.title,
+        category: s.category,
+        url: s.url,
+        mins: Math.round(s.durationMinutes || 0),
+      }));
+
+      return {
+        client: r.client,
+        clientShort: r.clientShort,
+        task: r.projectName,
+        parent: r.parentName,
+        hours: r.hours,
+        total: Math.round(total * 4) / 4,
+        activities: activities.slice(0, 15), // top 15 activities for context
+      };
+    }).filter(Boolean);
+
+    if (rowSummaries.length === 0) {
+      return res.json({ log: 'No time entries to generate a log for.' });
+    }
+
+    const systemPrompt = `You generate professional billing time logs for an Acumatica ERP consultant at NetAtWork (NAW). These logs document work performed for client billing.
+
+FORMAT — output EXACTLY this format, one entry per line, no headers:
+DATE|HOURS|CLIENT|CATEGORY|DESCRIPTION
+
+RULES:
+- DATE: Use YYYY-MM-DD format
+- HOURS: Use decimal (0.5, 1.0, 2.25, etc.)
+- CLIENT: Use the client name provided
+- CATEGORY: Choose from: Configuration, Support Investigation, Data Conversion, Training, Development, Reports, Project Management, Testing, Documentation
+- DESCRIPTION: Write 1-2 detailed professional sentences describing the work done. Reference specific Acumatica screens (e.g., AP303000), features, and technical details based on the task name and activity context. Be specific about what was accomplished, not just what was worked on.
+
+GROUPING:
+- Group hours by DATE + CLIENT + logical work category
+- If a task was worked on across multiple days, create separate entries per day
+- Combine related activities for the same client on the same day into one entry
+- Round hours to nearest 0.25
+
+Only output the log entries, no headers, no explanations.`;
+
+    const message = await client.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 3000,
+      system: systemPrompt,
+      messages: [{
+        role: 'user',
+        content: `Week starting: ${weekStart}\n\nTIMESHEET DATA:\n${JSON.stringify(rowSummaries, null, 2)}\n\nGenerate the billing time log.`,
+      }],
+    });
+
+    res.json({ log: message.content[0].text });
+  } catch (err) {
+    console.error('AI time-log error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
