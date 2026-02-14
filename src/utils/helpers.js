@@ -4,6 +4,7 @@ import {
   ACTIVE_STATUSES,
   PRIORITY_ORDER,
   STALE_THRESHOLD_DAYS,
+  FOLLOWUP_OVERDUE_DAYS,
   TEAM_MEMBER,
   SUBITEM_COLUMNS,
 } from './constants';
@@ -156,4 +157,67 @@ export function staleColor(days) {
   if (days >= 15) return 'text-red-400';
   if (days >= 8) return 'text-orange-400';
   return 'text-yellow-400';
+}
+
+// --- Quick Win helpers ---
+
+export function quickWinScore(sub) {
+  let score = 0;
+  const pct = parseInt(getColumnText(sub, SUBITEM_COLUMNS.PERCENT_COMPLETE)) || 0;
+  const est = parseFloat(getColumnText(sub, SUBITEM_COLUMNS.ESTIMATED_TIME)) || 999;
+  const type = getColumnText(sub, SUBITEM_COLUMNS.TYPE);
+  const status = getColumnText(sub, SUBITEM_COLUMNS.STATUS);
+  const team = getColumnText(sub, SUBITEM_COLUMNS.NAW_TEAM);
+
+  if (pct >= 90) score += 80;
+  else if (pct >= 80) score += 50;
+  if (est <= 1) score += 60;
+  else if (est <= 2) score += 40;
+  else if (est <= 4) score += 15;
+  if (type?.toLowerCase().includes('support')) score += 30;
+  if (status === 'New' || status === 'Not Started') score += 20;
+  if (!team) score += 15;
+
+  return score;
+}
+
+export function filterQuickWins(subitems) {
+  return subitems.filter(sub => {
+    const status = getColumnText(sub, SUBITEM_COLUMNS.STATUS);
+    if (isTerminal(status)) return false;
+    if (!isAssignedToMe(sub) && getColumnText(sub, SUBITEM_COLUMNS.NAW_TEAM)) return false;
+    return quickWinScore(sub) >= 30;
+  }).sort((a, b) => quickWinScore(b) - quickWinScore(a));
+}
+
+export function getQuickWinBadges(sub) {
+  const badges = [];
+  const pct = parseInt(getColumnText(sub, SUBITEM_COLUMNS.PERCENT_COMPLETE)) || 0;
+  const est = parseFloat(getColumnText(sub, SUBITEM_COLUMNS.ESTIMATED_TIME)) || 0;
+  const type = getColumnText(sub, SUBITEM_COLUMNS.TYPE);
+  const team = getColumnText(sub, SUBITEM_COLUMNS.NAW_TEAM);
+  const status = getColumnText(sub, SUBITEM_COLUMNS.STATUS);
+
+  if (pct >= 90) badges.push({ label: `${pct}% Done`, color: 'bg-green-500/20 text-green-400' });
+  else if (pct >= 80) badges.push({ label: `${pct}% Done`, color: 'bg-emerald-500/20 text-emerald-400' });
+  if (est > 0 && est <= 2) badges.push({ label: `${est}h est`, color: 'bg-blue-500/20 text-blue-400' });
+  if (type?.toLowerCase().includes('support')) badges.push({ label: 'Support', color: 'bg-orange-500/20 text-orange-400' });
+  if (!team) badges.push({ label: 'Unassigned', color: 'bg-yellow-500/20 text-yellow-400' });
+  if (status === 'New' || status === 'Not Started') badges.push({ label: 'New', color: 'bg-gray-500/20 text-gray-400' });
+
+  return badges;
+}
+
+// --- AI Badge helpers ---
+
+export function shouldShowAIBadge(subitem) {
+  const status = getColumnText(subitem, SUBITEM_COLUMNS.STATUS);
+  const days = daysSince(subitem.updated_at);
+  const priority = getColumnText(subitem, SUBITEM_COLUMNS.PRIORITY);
+
+  return (
+    (isWaiting(status) && days >= FOLLOWUP_OVERDUE_DAYS) ||
+    (!isTerminal(status) && !isWaiting(status) && days >= 10) ||
+    priority === 'System Down' || priority === 'High'
+  );
 }

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
+import { ChevronDown, ChevronRight, ExternalLink, Sparkles } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import PriorityDot from './PriorityDot';
+import ProgressBar from './ProgressBar';
 import SubitemDetail from './SubitemDetail';
 import { SUBITEM_COLUMNS } from '../utils/constants';
-import { getColumnText, formatRelative, daysSince, staleColor } from '../utils/helpers';
+import { getColumnText, formatRelative, daysSince, staleColor, shouldShowAIBadge } from '../utils/helpers';
 import { MONDAY_ACCOUNT_SLUG as SLUG } from '../api/config';
 
 export default function SubitemRow({ subitem, showClient = false, showStale = false }) {
@@ -17,6 +18,8 @@ export default function SubitemRow({ subitem, showClient = false, showStale = fa
   const cpProject = getColumnText(subitem, SUBITEM_COLUMNS.CP_PROJECT);
   const lastUpdated = subitem.updated_at;
   const days = daysSince(lastUpdated);
+  const hasAIBadge = shouldShowAIBadge(subitem);
+  const pctNum = parseInt(pctComplete) || 0;
 
   return (
     <div className="border-b border-[#2E3348]/50 last:border-b-0">
@@ -28,6 +31,11 @@ export default function SubitemRow({ subitem, showClient = false, showStale = fa
         <div className="text-[#5C6178] w-4 shrink-0">
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </div>
+
+        {/* AI Sparkle */}
+        {hasAIBadge && (
+          <Sparkles size={14} className="text-purple-400 shrink-0 animate-pulse" title="AI suggestion available" />
+        )}
 
         {/* Priority */}
         <div className="w-20 shrink-0">
@@ -66,9 +74,9 @@ export default function SubitemRow({ subitem, showClient = false, showStale = fa
 
         {/* % Complete */}
         {pctComplete && (
-          <span className="text-xs font-mono text-[#8B8FA3] w-10 text-right shrink-0">
-            {pctComplete}%
-          </span>
+          <div className="w-20 shrink-0">
+            <ProgressBar value={pctNum} />
+          </div>
         )}
 
         {/* Stale indicator */}

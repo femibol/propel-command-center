@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
+  Zap,
   AlertTriangle,
   Clock,
   Calendar,
@@ -10,10 +11,13 @@ import {
   ListChecks,
   Bell,
   Settings,
+  Crosshair,
 } from 'lucide-react';
 
 const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Sweep', countKey: 'total' },
+  { to: '/', icon: LayoutDashboard, label: 'Dashboard', countKey: null },
+  { to: '/sweep', icon: Crosshair, label: 'Sweep', countKey: 'total' },
+  { to: '/quick-wins', icon: Zap, label: 'Quick Wins', countKey: 'quickWins', badgeColor: 'bg-green-500/30 text-green-400' },
   { to: '/stale', icon: AlertTriangle, label: 'Stale', countKey: 'stale' },
   { to: '/waiting', icon: Clock, label: 'Waiting', countKey: 'waiting' },
   { to: '/planner', icon: Calendar, label: 'Planner', countKey: null },

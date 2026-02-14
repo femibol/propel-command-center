@@ -11,6 +11,7 @@ export const ACTIVE_BOARDS = [
   { id: '4950155999', name: 'Baron Francois', shortName: 'BFR' },
   { id: '5282901875', name: 'Olympus Power', shortName: 'OLY' },
   { id: '3288060633', name: 'Mara Technologies', shortName: 'MAR' },
+  { id: '1870137983', name: 'NAW Support', shortName: 'SUP' },
 ];
 
 export const DEV_BOARD_ID = '1293206994';
