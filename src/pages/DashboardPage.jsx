@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Crosshair, AlertTriangle, Clock, Zap, Timer, Target,
-  TrendingUp, ArrowRight,
+  TrendingUp, ArrowRight, Sparkles, Loader2,
 } from 'lucide-react';
 import { useSweepData } from '../hooks/useBoards';
+import { useAICoach } from '../contexts/AICoachContext';
+import { daysSince, getColumnText } from '../utils/helpers';
+import { SUBITEM_COLUMNS, FOLLOWUP_OVERDUE_DAYS } from '../utils/constants';
 import KPICard from '../components/dashboard/KPICard';
 import ClientHealthCard from '../components/dashboard/ClientHealthCard';
 import AIInsightsPanel from '../components/AIInsightsPanel';
@@ -16,10 +19,69 @@ export default function DashboardPage() {
     myActive, counts, byClient, highPriority, stale, waiting, quickWins,
     isLoading,
   } = useSweepData();
+  const { setPageContext } = useAICoach();
+
+  const [briefing, setBriefing] = useState(null);
+  const [briefingLoading, setBriefingLoading] = useState(false);
+
+  // Set page context
+  useEffect(() => {
+    setPageContext({
+      page: 'dashboard',
+      clients: Object.keys(byClient || {}),
+      data: `Active: ${counts.total}, High: ${counts.high}, Stale: ${counts.stale}, Waiting: ${counts.waiting}, Quick wins: ${counts.quickWins}`,
+    });
+  }, [counts, byClient, setPageContext]);
 
   // Sort clients by item count
   const sortedClients = Object.entries(byClient || {})
     .sort((a, b) => b[1].length - a[1].length);
+
+  // Fetch morning briefing (cached per day)
+  useEffect(() => {
+    if (!myActive || myActive.length === 0 || isLoading) return;
+
+    const cacheKey = `propel-briefing-${new Date().toISOString().slice(0, 10)}-${myActive.length}`;
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      setBriefing(cached);
+      return;
+    }
+
+    setBriefingLoading(true);
+    const overdueFollowups = waiting.filter(s => daysSince(s.updated_at) >= FOLLOWUP_OVERDUE_DAYS);
+    const nearlyComplete = myActive.filter(s => {
+      const pct = parseInt(getColumnText(s, SUBITEM_COLUMNS.PERCENT_COMPLETE)) || 0;
+      return pct >= 80;
+    });
+    const clientNames = Object.keys(byClient || {});
+    const topStale = stale.slice(0, 5).map(s => `${s.name} (${s._clientShort}, ${daysSince(s.updated_at)}d stale)`);
+    const topHigh = highPriority.slice(0, 5).map(s => `${s.name} (${s._clientShort})`);
+
+    const summary = `Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+Total active items: ${myActive.length}
+High priority: ${highPriority.length} — ${topHigh.join(', ')}
+Stale (5+ days): ${stale.length} — ${topStale.join(', ')}
+Waiting: ${waiting.length}, Overdue follow-ups (7+d): ${overdueFollowups.length}
+Quick wins: ${quickWins.length}
+Nearly complete (80%+): ${nearlyComplete.length}
+Active clients (${clientNames.length}): ${clientNames.join(', ')}`;
+
+    fetch('/api/ai/briefing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ summary }),
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.briefing) {
+          setBriefing(data.briefing);
+          sessionStorage.setItem(cacheKey, data.briefing);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setBriefingLoading(false));
+  }, [myActive?.length, isLoading]);
 
   if (isLoading) {
     return (
@@ -47,6 +109,27 @@ export default function DashboardPage() {
           </p>
         </div>
       </div>
+
+      {/* Morning Briefing */}
+      {(briefing || briefingLoading) && (
+        <div className="bg-[#1A1D27] border border-accent/20 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles size={14} className="text-accent" />
+            <h3 className="text-sm font-semibold text-[#E8E9ED]">Morning Briefing</h3>
+            <span className="text-[10px] text-[#5C6178]">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+            </span>
+          </div>
+          {briefingLoading ? (
+            <div className="flex items-center gap-2 text-xs text-[#5C6178]">
+              <Loader2 size={12} className="animate-spin" />
+              Preparing your briefing...
+            </div>
+          ) : (
+            <p className="text-xs text-[#C8C9CD] leading-relaxed whitespace-pre-wrap">{briefing}</p>
+          )}
+        </div>
+      )}
 
       {/* AI Insights */}
       <AIInsightsPanel />

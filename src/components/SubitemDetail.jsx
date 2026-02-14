@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { CheckCircle, MessageSquare, Send } from 'lucide-react';
+import { CheckCircle, Send, Sparkles } from 'lucide-react';
 import { SUBITEM_COLUMNS, ALL_STATUSES, TERMINAL_STATUSES } from '../utils/constants';
-import { getColumnText, formatDate, daysSince, isWaiting, getWaitingOn } from '../utils/helpers';
+import { getColumnText, formatDate, daysSince, getWaitingOn } from '../utils/helpers';
 import { useStatusMutation, usePostUpdate } from '../hooks/useBoards';
-import AISuggestionButton from './AISuggestionButton';
+import AISuggestionCard from './AISuggestionCard';
 import { useToast } from '../contexts/ToastContext';
 
 export default function SubitemDetail({ subitem }) {
   const [updateText, setUpdateText] = useState('');
   const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [showAISuggestion, setShowAISuggestion] = useState(false);
   const { addToast } = useToast();
 
   const statusMutation = useStatusMutation();
@@ -56,9 +57,8 @@ export default function SubitemDetail({ subitem }) {
     );
   }
 
-  function handleAISuggestion(suggestion) {
-    setUpdateText(suggestion);
-    addToast('AI suggestion loaded', 'info');
+  function handleUseReply(text) {
+    setUpdateText(text);
   }
 
   return (
@@ -75,6 +75,17 @@ export default function SubitemDetail({ subitem }) {
 
         {/* Quick actions */}
         <div className="flex gap-2">
+          <button
+            onClick={() => setShowAISuggestion(!showAISuggestion)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+              showAISuggestion
+                ? 'bg-accent/20 text-accent border border-accent/40'
+                : 'bg-purple-500/20 text-purple-400 border border-purple-500/40 hover:bg-purple-500/30'
+            }`}
+          >
+            <Sparkles size={12} />
+            AI Suggest
+          </button>
           <button
             onClick={handleMarkDone}
             disabled={statusMutation.isPending}
@@ -136,6 +147,24 @@ export default function SubitemDetail({ subitem }) {
         <Detail label="">&nbsp;</Detail>
       </div>
 
+      {/* AI Suggestion Card — full width, streaming */}
+      {showAISuggestion && (
+        <AISuggestionCard
+          subitem={{ name: subitem.name, _clientName: subitem._clientName }}
+          context={{
+            status,
+            priority,
+            daysSinceUpdate: daysSince(subitem.updated_at),
+            waitingOn: getWaitingOn(status),
+            details: details?.slice(0, 200),
+            type,
+            module,
+          }}
+          onUseReply={handleUseReply}
+          onClose={() => setShowAISuggestion(false)}
+        />
+      )}
+
       {/* ChangePoint mapping */}
       <div className="bg-[#0F1117] rounded p-3 space-y-1">
         <p className="text-xs font-medium text-[#8B8FA3] uppercase tracking-wide mb-1">ChangePoint Mapping</p>
@@ -159,20 +188,13 @@ export default function SubitemDetail({ subitem }) {
 
       {/* Post update */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-medium text-[#8B8FA3] uppercase tracking-wide">Post Update</p>
-          <AISuggestionButton
-            subitem={{ name: subitem.name, _clientName: subitem._clientName }}
-            context={{ status, daysSinceUpdate: daysSince(subitem.updated_at), waitingOn: getWaitingOn(status) }}
-            onSuggestion={handleAISuggestion}
-          />
-        </div>
+        <p className="text-xs font-medium text-[#8B8FA3] uppercase tracking-wide">Post Update</p>
         <div className="flex gap-2">
           <textarea
             value={updateText}
             onChange={(e) => setUpdateText(e.target.value)}
-            placeholder="Type your update here... (or use AI Suggest)"
-            className="flex-1 bg-[#0F1117] border border-[#2E3348] rounded px-3 py-2 text-sm text-[#E8E9ED] placeholder-[#5C6178] resize-none focus:outline-none focus:border-accent h-16"
+            placeholder="Type your update here... (or click AI Suggest above)"
+            className="flex-1 bg-[#0F1117] border border-[#2E3348] rounded px-3 py-2 text-sm text-[#E8E9ED] placeholder-[#5C6178] resize-none focus:outline-none focus:border-accent h-20"
           />
           <button
             onClick={handlePostUpdate}

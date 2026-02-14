@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
-import { Sparkles, ChevronDown, ChevronUp, AlertTriangle, Clock, Zap, Target } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, ChevronDown, ChevronUp, AlertTriangle, Clock, Zap, Target, Loader2 } from 'lucide-react';
 import { useSweepData } from '../hooks/useBoards';
-import { getColumnText, daysSince, isWaiting } from '../utils/helpers';
+import { getColumnText, daysSince } from '../utils/helpers';
 import { SUBITEM_COLUMNS, FOLLOWUP_OVERDUE_DAYS } from '../utils/constants';
 
 export default function AIInsightsPanel() {
   const [expanded, setExpanded] = useState(true);
-  const { myActive, stale, waiting, quickWins, highPriority } = useSweepData();
+  const [aiAdvice, setAiAdvice] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const { myActive, stale, waiting, quickWins, highPriority, byClient } = useSweepData();
 
-  // Compute insights from cached data (no API call)
+  // Compute insights from cached data (no API call, instant)
   const overdueFollowups = waiting.filter(s => daysSince(s.updated_at) >= FOLLOWUP_OVERDUE_DAYS);
   const stalledHighPriority = highPriority.filter(s => daysSince(s.updated_at) >= 5);
   const nearlyComplete = myActive.filter(s => {
@@ -77,7 +79,42 @@ export default function AIInsightsPanel() {
     });
   }
 
-  if (insights.length === 0) return null;
+  // Fetch AI-powered coaching advice (haiku, fast)
+  useEffect(() => {
+    if (!myActive || myActive.length === 0) return;
+
+    // Cache key: use today's date + item count
+    const cacheKey = `propel-ai-insight-${new Date().toISOString().slice(0, 10)}-${myActive.length}`;
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      setAiAdvice(cached);
+      return;
+    }
+
+    setAiLoading(true);
+    const clientNames = Object.keys(byClient || {}).slice(0, 10);
+    const topStale = stale.slice(0, 5).map(s => `${s.name} (${s._clientShort}, ${daysSince(s.updated_at)}d)`);
+    const topHigh = highPriority.slice(0, 5).map(s => `${s.name} (${s._clientShort})`);
+
+    const dataSummary = `Total active: ${myActive.length}, High priority: ${highPriority.length}, Stale (5+d): ${stale.length}, Waiting: ${waiting.length}, Quick wins: ${quickWins.length}, Overdue follow-ups: ${overdueFollowups.length}, Nearly complete (80%+): ${nearlyComplete.length}. Clients: ${clientNames.join(', ')}. Top stale: ${topStale.join('; ')}. Top high-priority: ${topHigh.join('; ')}.`;
+
+    fetch('/api/ai/insights', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: dataSummary }),
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.insight) {
+          setAiAdvice(data.insight);
+          sessionStorage.setItem(cacheKey, data.insight);
+        }
+      })
+      .catch(() => {}) // Silently fail — rule-based insights are always visible
+      .finally(() => setAiLoading(false));
+  }, [myActive?.length]); // Only re-fetch when item count changes
+
+  if (insights.length === 0 && !aiAdvice) return null;
 
   return (
     <div className="bg-[#1A1D27] border border-purple-500/20 rounded-lg overflow-hidden">
@@ -88,7 +125,7 @@ export default function AIInsightsPanel() {
         <Sparkles size={14} className="text-purple-400" />
         <span className="text-xs font-semibold text-purple-300">AI Insights</span>
         <span className="text-[10px] text-[#5C6178] ml-1">
-          {insights.length} suggestion{insights.length > 1 ? 's' : ''}
+          {insights.length} suggestion{insights.length !== 1 ? 's' : ''}
         </span>
         <div className="flex-1" />
         {expanded ? <ChevronUp size={14} className="text-[#5C6178]" /> : <ChevronDown size={14} className="text-[#5C6178]" />}
@@ -96,6 +133,24 @@ export default function AIInsightsPanel() {
 
       {expanded && (
         <div className="px-4 pb-3 space-y-2">
+          {/* AI Coach Advice */}
+          {(aiAdvice || aiLoading) && (
+            <div className="p-3 rounded-lg bg-accent/5 border border-accent/20 mb-1">
+              <div className="flex items-start gap-2">
+                <Sparkles size={13} className="text-accent mt-0.5 shrink-0" />
+                {aiLoading ? (
+                  <div className="flex items-center gap-2 text-xs text-[#5C6178]">
+                    <Loader2 size={12} className="animate-spin" />
+                    Getting coaching advice...
+                  </div>
+                ) : (
+                  <p className="text-xs text-[#C8C9CD] leading-relaxed">{aiAdvice}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Rule-based insights */}
           {insights.map((insight, i) => {
             const Icon = insight.icon;
             return (

@@ -1,7 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useSweepData } from '../hooks/useBoards';
+import { useAICoach } from '../contexts/AICoachContext';
 import SummaryBar from '../components/SummaryBar';
 import AIInsightsPanel from '../components/AIInsightsPanel';
+import NudgeBanner from '../components/NudgeBanner';
 import ClientGroup from '../components/ClientGroup';
 import SkeletonGroup from '../components/SkeletonGroup';
 import { ACTIVE_BOARDS } from '../utils/constants';
@@ -9,6 +11,15 @@ import { ACTIVE_BOARDS } from '../utils/constants';
 export default function SweepPage() {
   const { byClient, counts, isLoading, isError, error, dataUpdatedAt, refetch, isRefetching } =
     useSweepData();
+  const { setPageContext } = useAICoach();
+
+  useEffect(() => {
+    setPageContext({
+      page: 'sweep',
+      clients: Object.keys(byClient || {}),
+      data: `Active: ${counts.total}, High: ${counts.high}, Stale: ${counts.stale}, Waiting: ${counts.waiting}`,
+    });
+  }, [counts, byClient, setPageContext]);
 
   const [clientFilter, setClientFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
@@ -73,6 +84,7 @@ export default function SweepPage() {
         onRefresh={() => refetch()}
         isRefreshing={isRefetching}
       />
+      <NudgeBanner page="sweep" />
 
       {/* Filters */}
       <div className="flex items-center gap-3 px-5 py-3 border-b border-[#2E3348] bg-[#0F1117]">

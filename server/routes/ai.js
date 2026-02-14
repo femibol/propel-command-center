@@ -9,6 +9,141 @@ function getClient() {
   return new Anthropic({ apiKey: key });
 }
 
+function buildSystemPrompt(context) {
+  const clientList = context?.clients?.length
+    ? `Active clients: ${context.clients.join(', ')}`
+    : '';
+  const pageInfo = context?.page ? `The user is currently on the "${context.page}" page.` : '';
+  const dataContext = context?.data ? `\nCurrent data context:\n${context.data}` : '';
+
+  return `You are PROPEL Coach — an assertive, sharp productivity coach for Femi Bolarin, a Senior Acumatica ERP Consultant at NetAtWork (NAW). Femi manages 10+ simultaneous client PROPEL implementations.
+
+YOUR PERSONALITY:
+- Direct, no-nonsense, slightly pushy (in a motivating way)
+- Use short punchy sentences. No fluff.
+- You pressure Femi to stay on track and close tasks
+- Celebrate wins briefly, then push for the next thing
+- Reference specific client names and task details when available
+- You know the PROPEL workflow: New → In Progress → Under Review → Done
+
+PROPEL STATUS WORKFLOW:
+Active: In Progress, Under Review, Review with Customer, Scoping / Researching, Scheduled, New, Not Started, Estimating
+Waiting: Waiting - Customer, Waiting - Client, Waiting - NAW, Waiting - Dev, Waiting - Tech
+Terminal: Done, Pending Close, NA, On Hold
+
+PRIORITY LEVELS (severity order): System Down > High > Medium > Low
+
+${clientList}
+${pageInfo}
+${dataContext}
+
+RULES:
+- Keep responses concise (2-5 sentences for quick questions, longer for analysis)
+- Always be actionable — tell Femi WHAT to do, not just what's happening
+- If asked about tasks, reference specific names and clients
+- Use markdown formatting for clarity (bold, bullets, etc.)
+- When pressuring, be motivating not demotivating`;
+}
+
+// ───────── SSE Streaming Chat ─────────
+router.post('/chat', async (req, res) => {
+  try {
+    const { messages, context, model } = req.body;
+    const client = getClient();
+
+    // SSE headers
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+
+    const modelId = model === 'fast'
+      ? 'claude-haiku-4-5-20250929'
+      : 'claude-sonnet-4-5-20250929';
+
+    const stream = client.messages.stream({
+      model: modelId,
+      max_tokens: model === 'fast' ? 512 : 1536,
+      system: buildSystemPrompt(context),
+      messages: messages.map(m => ({
+        role: m.role,
+        content: m.content,
+      })),
+    });
+
+    stream.on('text', (text) => {
+      res.write(`data: ${JSON.stringify({ type: 'text', text })}\n\n`);
+    });
+
+    stream.on('message', () => {
+      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+      res.end();
+    });
+
+    stream.on('error', (err) => {
+      res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
+      res.end();
+    });
+
+    // Handle client disconnect
+    req.on('close', () => {
+      stream.abort();
+    });
+  } catch (err) {
+    console.error('AI chat error:', err.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+});
+
+// ───────── Quick Insights (haiku, fast) ─────────
+router.post('/insights', async (req, res) => {
+  try {
+    const { data } = req.body;
+    const client = getClient();
+
+    const message = await client.messages.create({
+      model: 'claude-haiku-4-5-20250929',
+      max_tokens: 200,
+      system: `You are PROPEL Coach. Give 2-3 sentences of actionable advice based on the consultant's current task data. Be specific — mention client names and task names. Be direct and motivating. No preamble.`,
+      messages: [{ role: 'user', content: data }],
+    });
+
+    res.json({ insight: message.content[0].text });
+  } catch (err) {
+    console.error('AI insights error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ───────── Morning Briefing (haiku, cached client-side) ─────────
+router.post('/briefing', async (req, res) => {
+  try {
+    const { summary } = req.body;
+    const client = getClient();
+
+    const message = await client.messages.create({
+      model: 'claude-haiku-4-5-20250929',
+      max_tokens: 400,
+      system: `You are PROPEL Coach giving Femi his morning briefing. Based on his task data, give:
+1. Top 3 priorities for today (specific task + client names)
+2. Any items that need immediate attention (stale, high priority, overdue follow-ups)
+3. One quick win suggestion
+
+Be direct, use bullet points, keep it under 150 words. Start with a motivating one-liner.`,
+      messages: [{ role: 'user', content: summary }],
+    });
+
+    res.json({ briefing: message.content[0].text });
+  } catch (err) {
+    console.error('AI briefing error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Generate follow-up suggestion for a task
 router.post('/suggest', async (req, res) => {
   try {

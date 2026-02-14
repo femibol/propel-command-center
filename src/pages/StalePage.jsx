@@ -1,11 +1,21 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useSweepData } from '../hooks/useBoards';
+import { useAICoach } from '../contexts/AICoachContext';
 import SubitemRow from '../components/SubitemRow';
+import NudgeBanner from '../components/NudgeBanner';
 import SkeletonRow from '../components/SkeletonRow';
 import { daysSince } from '../utils/helpers';
 
 export default function StalePage() {
   const { stale, isLoading } = useSweepData();
+  const { setPageContext } = useAICoach();
+
+  useEffect(() => {
+    setPageContext({
+      page: 'stale',
+      data: `${stale?.length || 0} stale items (5+ days without update)`,
+    });
+  }, [stale, setPageContext]);
 
   const sorted = [...(stale || [])].sort(
     (a, b) => daysSince(a.updated_at) - daysSince(b.updated_at)
@@ -13,6 +23,7 @@ export default function StalePage() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
+      <NudgeBanner page="stale" />
       <div className="px-5 py-4 border-b border-[#2E3348] bg-[#1A1D27]">
         <h2 className="text-base font-semibold text-[#E8E9ED]">Stale Items</h2>
         <p className="text-xs text-[#5C6178] mt-0.5">
