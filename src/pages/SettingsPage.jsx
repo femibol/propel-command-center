@@ -7,7 +7,18 @@ export default function SettingsPage() {
   const tokenConfigured = !!MONDAY_API_TOKEN && MONDAY_API_TOKEN !== 'your_monday_api_token_here';
   const [timelyStatus, setTimelyStatus] = useState(null);
   const [aiStatus, setAiStatus] = useState(null);
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [aiSaving, setAiSaving] = useState(false);
+  const [aiTesting, setAiTesting] = useState(false);
+  const [aiTestResult, setAiTestResult] = useState(null);
   const { addToast } = useToast();
+
+  function refreshHealth() {
+    fetch('/api/health')
+      .then(res => res.json())
+      .then(data => setAiStatus(data))
+      .catch(() => setAiStatus({ error: 'Backend not running' }));
+  }
 
   useEffect(() => {
     // Check Timely DB status
@@ -16,12 +27,50 @@ export default function SettingsPage() {
       .then(data => setTimelyStatus(data))
       .catch(() => setTimelyStatus({ error: 'Cannot connect to backend' }));
 
-    // Check AI/backend health
-    fetch('/api/health')
-      .then(res => res.json())
-      .then(data => setAiStatus(data))
-      .catch(() => setAiStatus({ error: 'Backend not running' }));
+    refreshHealth();
   }, []);
+
+  async function saveApiKey() {
+    if (!apiKeyInput.trim()) return;
+    setAiSaving(true);
+    setAiTestResult(null);
+    try {
+      const res = await fetch('/api/settings/api-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: apiKeyInput.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      addToast(`API key saved: ${data.preview}`, 'success');
+      setApiKeyInput('');
+      refreshHealth();
+    } catch (err) {
+      addToast(`Failed: ${err.message}`, 'error');
+    } finally {
+      setAiSaving(false);
+    }
+  }
+
+  async function testAI() {
+    setAiTesting(true);
+    setAiTestResult(null);
+    try {
+      const res = await fetch('/api/settings/test-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setAiTestResult({ success: true, message: data.response });
+      addToast('AI connection test passed!', 'success');
+    } catch (err) {
+      setAiTestResult({ success: false, message: err.message });
+      addToast(`AI test failed: ${err.message}`, 'error');
+    } finally {
+      setAiTesting(false);
+    }
+  }
 
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-2xl">
@@ -88,8 +137,10 @@ export default function SettingsPage() {
       </div>
 
       {/* AI Features Status */}
-      <div className="bg-[#1A1D27] border border-[#2E3348] rounded-lg p-5 space-y-3">
-        <h3 className="text-sm font-semibold text-[#E8E9ED]">AI Features (Anthropic)</h3>
+      <div className="bg-[#1A1D27] border border-[#2E3348] rounded-lg p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-[#E8E9ED]">AI Features (Anthropic Claude)</h3>
+
+        {/* Status indicator */}
         {aiStatus === null ? (
           <p className="text-xs text-[#5C6178]">Checking status...</p>
         ) : aiStatus.error ? (
@@ -98,15 +149,64 @@ export default function SettingsPage() {
             <span className="text-sm text-red-400">{aiStatus.error}</span>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${aiStatus.ai ? 'bg-green-500' : 'bg-yellow-500'}`} />
-            <span className="text-sm text-[#8B8FA3]">
-              {aiStatus.ai ? 'AI features enabled' : 'AI features disabled (set ANTHROPIC_API_KEY in .env)'}
-            </span>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${aiStatus.ai ? 'bg-green-500' : 'bg-yellow-500'}`} />
+              <span className="text-sm text-[#8B8FA3]">
+                {aiStatus.ai ? 'API key configured' : 'No API key set'}
+              </span>
+            </div>
+            {aiStatus.ai && aiStatus.aiKeyPreview && (
+              <p className="text-[10px] text-[#5C6178] font-mono ml-4">{aiStatus.aiKeyPreview}</p>
+            )}
           </div>
         )}
+
+        {/* API Key input */}
+        <div className="space-y-2">
+          <label className="text-xs text-[#5C6178] block">
+            {aiStatus?.ai ? 'Update Anthropic API Key:' : 'Enter your Anthropic API Key:'}
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="password"
+              value={apiKeyInput}
+              onChange={(e) => setApiKeyInput(e.target.value)}
+              placeholder="sk-ant-api03-..."
+              className="flex-1 bg-[#0F1117] border border-[#2E3348] rounded px-3 py-2 text-sm text-[#E8E9ED] placeholder-[#3E4255] focus:outline-none focus:border-accent font-mono"
+              onKeyDown={(e) => e.key === 'Enter' && saveApiKey()}
+            />
+            <button
+              onClick={saveApiKey}
+              disabled={aiSaving || !apiKeyInput.trim()}
+              className="px-4 py-2 bg-accent text-white rounded text-sm font-medium hover:bg-blue-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+            >
+              {aiSaving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+          <p className="text-[10px] text-[#5C6178]">
+            Get your key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">console.anthropic.com</a>. Key is stored in server memory for this session.
+          </p>
+        </div>
+
+        {/* Test button */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={testAI}
+            disabled={aiTesting || !aiStatus?.ai}
+            className="px-4 py-2 bg-[#2E3348] text-[#E8E9ED] rounded text-sm hover:bg-[#3E4255] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {aiTesting ? 'Testing...' : 'Test Connection'}
+          </button>
+          {aiTestResult && (
+            <span className={`text-xs ${aiTestResult.success ? 'text-green-400' : 'text-red-400'}`}>
+              {aiTestResult.success ? '✓ ' : '✗ '}{aiTestResult.message}
+            </span>
+          )}
+        </div>
+
         <p className="text-xs text-[#5C6178]">
-          AI is used for: follow-up suggestions, daily task prioritization, time block matching review.
+          AI powers: follow-up suggestions, daily task prioritization, time block matching, and AI insights.
         </p>
       </div>
 
