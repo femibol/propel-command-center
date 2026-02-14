@@ -37,7 +37,7 @@ export default function DashboardPage() {
   const sortedClients = Object.entries(byClient || {})
     .sort((a, b) => b[1].length - a[1].length);
 
-  // Fetch morning briefing (cached per day)
+  // Fetch morning briefing (cached per day) — deferred 1.5s so KPIs render first
   useEffect(() => {
     if (!myActive || myActive.length === 0 || isLoading) return;
 
@@ -48,17 +48,19 @@ export default function DashboardPage() {
       return;
     }
 
-    setBriefingLoading(true);
-    const overdueFollowups = waiting.filter(s => daysSince(s.updated_at) >= FOLLOWUP_OVERDUE_DAYS);
-    const nearlyComplete = myActive.filter(s => {
-      const pct = parseInt(getColumnText(s, SUBITEM_COLUMNS.PERCENT_COMPLETE)) || 0;
-      return pct >= 80;
-    });
-    const clientNames = Object.keys(byClient || {});
-    const topStale = stale.slice(0, 5).map(s => `${s.name} (${s._clientShort}, ${daysSince(s.updated_at)}d stale)`);
-    const topHigh = highPriority.slice(0, 5).map(s => `${s.name} (${s._clientShort})`);
+    // Defer AI call so dashboard renders first
+    const timer = setTimeout(() => {
+      setBriefingLoading(true);
+      const overdueFollowups = waiting.filter(s => daysSince(s.updated_at) >= FOLLOWUP_OVERDUE_DAYS);
+      const nearlyComplete = myActive.filter(s => {
+        const pct = parseInt(getColumnText(s, SUBITEM_COLUMNS.PERCENT_COMPLETE)) || 0;
+        return pct >= 80;
+      });
+      const clientNames = Object.keys(byClient || {});
+      const topStale = stale.slice(0, 5).map(s => `${s.name} (${s._clientShort}, ${daysSince(s.updated_at)}d stale)`);
+      const topHigh = highPriority.slice(0, 5).map(s => `${s.name} (${s._clientShort})`);
 
-    const summary = `Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+      const summary = `Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
 Total active items: ${myActive.length}
 High priority: ${highPriority.length} — ${topHigh.join(', ')}
 Stale (5+ days): ${stale.length} — ${topStale.join(', ')}
@@ -67,32 +69,46 @@ Quick wins: ${quickWins.length}
 Nearly complete (80%+): ${nearlyComplete.length}
 Active clients (${clientNames.length}): ${clientNames.join(', ')}`;
 
-    fetch('/api/ai/briefing', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ summary }),
-    })
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.briefing) {
-          setBriefing(data.briefing);
-          sessionStorage.setItem(cacheKey, data.briefing);
-        }
+      fetch('/api/ai/briefing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ summary }),
       })
-      .catch(() => {})
-      .finally(() => setBriefingLoading(false));
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.briefing) {
+            setBriefing(data.briefing);
+            sessionStorage.setItem(cacheKey, data.briefing);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setBriefingLoading(false));
+    }, 1500);
+
+    return () => clearTimeout(timer);
   }, [myActive?.length, isLoading]);
 
   if (isLoading) {
     return (
-      <div className="flex-1 overflow-y-auto p-5 space-y-4">
-        <h2 className="text-lg font-semibold text-[#E8E9ED]">Dashboard</h2>
-        <div className="grid grid-cols-3 gap-3">
+      <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        <div>
+          <h2 className="text-lg font-semibold text-[#E8E9ED]">Dashboard</h2>
+          <p className="text-xs text-[#5C6178] mt-0.5">Loading your boards...</p>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-[#1A1D27] border border-[#2E3348] rounded-lg p-4 h-24 animate-pulse" />
+            <div key={i} className="bg-[#1A1D27] border border-[#2E3348] rounded-lg p-4 h-24 animate-pulse">
+              <div className="h-3 w-8 bg-[#2E3348] rounded mb-3" />
+              <div className="h-6 w-12 bg-[#2E3348] rounded mb-2" />
+              <div className="h-2 w-20 bg-[#2E3348] rounded" />
+            </div>
           ))}
         </div>
-        {Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="bg-[#1A1D27] border border-[#2E3348] rounded-lg p-3 h-20 animate-pulse" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -110,31 +126,7 @@ Active clients (${clientNames.length}): ${clientNames.join(', ')}`;
         </div>
       </div>
 
-      {/* Morning Briefing */}
-      {(briefing || briefingLoading) && (
-        <div className="bg-[#1A1D27] border border-accent/20 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles size={14} className="text-accent" />
-            <h3 className="text-sm font-semibold text-[#E8E9ED]">Morning Briefing</h3>
-            <span className="text-[10px] text-[#5C6178]">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-            </span>
-          </div>
-          {briefingLoading ? (
-            <div className="flex items-center gap-2 text-xs text-[#5C6178]">
-              <Loader2 size={12} className="animate-spin" />
-              Preparing your briefing...
-            </div>
-          ) : (
-            <p className="text-xs text-[#C8C9CD] leading-relaxed whitespace-pre-wrap">{briefing}</p>
-          )}
-        </div>
-      )}
-
-      {/* AI Insights */}
-      <AIInsightsPanel />
-
-      {/* KPI Row */}
+      {/* KPI Row — renders instantly, no API dependency */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <KPICard
           icon={Crosshair}
@@ -191,6 +183,30 @@ Active clients (${clientNames.length}): ${clientNames.join(', ')}`;
           onClick={() => navigate('/cp-check')}
         />
       </div>
+
+      {/* Morning Briefing — deferred, loads after KPIs */}
+      {(briefing || briefingLoading) && (
+        <div className="bg-[#1A1D27] border border-accent/20 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles size={14} className="text-accent" />
+            <h3 className="text-sm font-semibold text-[#E8E9ED]">Morning Briefing</h3>
+            <span className="text-[10px] text-[#5C6178]">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+            </span>
+          </div>
+          {briefingLoading ? (
+            <div className="flex items-center gap-2 text-xs text-[#5C6178]">
+              <Loader2 size={12} className="animate-spin" />
+              Preparing your briefing...
+            </div>
+          ) : (
+            <p className="text-xs text-[#C8C9CD] leading-relaxed whitespace-pre-wrap">{briefing}</p>
+          )}
+        </div>
+      )}
+
+      {/* AI Insights */}
+      <AIInsightsPanel />
 
       {/* Client Health Grid */}
       <div>

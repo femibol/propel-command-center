@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchBoardItems, updateStatus, postUpdate as apiPostUpdate } from '../api/monday';
-import { ACTIVE_BOARDS, REFRESH_INTERVAL_MS, SUBITEM_COLUMNS } from '../utils/constants';
+import { useMemo } from 'react';
+import { updateStatus, postUpdate as apiPostUpdate } from '../api/monday';
+import { REFRESH_INTERVAL_MS, SUBITEM_COLUMNS } from '../utils/constants';
 import {
   filterMyActiveItems,
   filterStaleItems,
@@ -11,52 +12,19 @@ import {
   getColumnText,
 } from '../utils/helpers';
 
-// Fetch all boards in parallel, extract and flatten subitems
+// Fetch all board data from the server-side cache (single HTTP call)
+// Server handles: 11 parallel Monday.com fetches, pagination, subitem flattening, 2-min cache
 export function useAllBoards() {
   return useQuery({
     queryKey: ['allBoards'],
     queryFn: async () => {
-      const results = await Promise.allSettled(
-        ACTIVE_BOARDS.map(async (board) => {
-          const items = await fetchBoardItems(board.id);
-          return { board, items };
-        })
-      );
-
-      const boards = [];
-      for (const result of results) {
-        if (result.status === 'fulfilled') {
-          boards.push(result.value);
-        } else {
-          console.error('Board fetch failed:', result.reason);
-        }
+      const res = await fetch('/api/boards/all');
+      if (!res.ok) {
+        throw new Error(`Board fetch failed: ${res.status} ${res.statusText}`);
       }
-
-      // Flatten all subitems across all boards with parent/board context
-      const allSubitems = [];
-      for (const { board, items } of boards) {
-        for (const item of items) {
-          for (const sub of item.subitems || []) {
-            allSubitems.push({
-              ...sub,
-              _parentId: item.id,
-              _parentName: item.name,
-              _parentGroup: item.group?.title || 'Unknown',
-              _boardId: board.id,
-              _boardName: board.name,
-              _clientName: board.name
-                .replace('PROPEL - ', '')
-                .replace(' - Acumatica Project', '')
-                .replace('Upgrade - ', '')
-                .replace('Managed Support - (CA) ', ''),
-              _clientShort: board.shortName,
-              _subitemBoardId: sub.board?.id,
-            });
-          }
-        }
-      }
-
-      return { boards, allSubitems };
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      return data;
     },
     staleTime: REFRESH_INTERVAL_MS,
     refetchInterval: REFRESH_INTERVAL_MS,
@@ -64,49 +32,63 @@ export function useAllBoards() {
   });
 }
 
-// Derived data from the main query
+// Derived data from the main query — memoized to avoid re-filtering on every render
 export function useSweepData() {
   const query = useAllBoards();
   const allSubitems = query.data?.allSubitems || [];
 
-  const myActive = filterMyActiveItems(allSubitems).sort(sortByPriority);
-  const stale = filterStaleItems(allSubitems);
-  const waiting = filterWaitingItems(allSubitems);
-  const cpMissing = filterCPMissing(allSubitems);
-  const quickWins = filterQuickWins(allSubitems);
+  const derived = useMemo(() => {
+    if (allSubitems.length === 0) {
+      return {
+        myActive: [],
+        stale: [],
+        waiting: [],
+        cpMissing: [],
+        quickWins: [],
+        byClient: {},
+        highPriority: [],
+        counts: { total: 0, high: 0, waiting: 0, stale: 0, cpMissing: 0, quickWins: 0 },
+      };
+    }
 
-  // Group active items by client
-  const byClient = {};
-  for (const sub of myActive) {
-    const client = sub._clientName;
-    if (!byClient[client]) byClient[client] = [];
-    byClient[client].push(sub);
-  }
+    const myActive = filterMyActiveItems(allSubitems).sort(sortByPriority);
+    const stale = filterStaleItems(allSubitems);
+    const waiting = filterWaitingItems(allSubitems);
+    const cpMissing = filterCPMissing(allSubitems);
+    const quickWins = filterQuickWins(allSubitems);
 
-  // Count high priority
-  const highPriority = myActive.filter((s) => {
-    const p = getColumnText(s, SUBITEM_COLUMNS.PRIORITY);
-    return p === 'High' || p === 'System Down';
-  });
+    const byClient = {};
+    for (const sub of myActive) {
+      const client = sub._clientName;
+      if (!byClient[client]) byClient[client] = [];
+      byClient[client].push(sub);
+    }
 
-  return {
-    ...query,
-    myActive,
-    stale,
-    waiting,
-    cpMissing,
-    quickWins,
-    byClient,
-    highPriority,
-    counts: {
-      total: myActive.length,
-      high: highPriority.length,
-      waiting: waiting.length,
-      stale: stale.length,
-      cpMissing: cpMissing.length,
-      quickWins: quickWins.length,
-    },
-  };
+    const highPriority = myActive.filter((s) => {
+      const p = getColumnText(s, SUBITEM_COLUMNS.PRIORITY);
+      return p === 'High' || p === 'System Down';
+    });
+
+    return {
+      myActive,
+      stale,
+      waiting,
+      cpMissing,
+      quickWins,
+      byClient,
+      highPriority,
+      counts: {
+        total: myActive.length,
+        high: highPriority.length,
+        waiting: waiting.length,
+        stale: stale.length,
+        cpMissing: cpMissing.length,
+        quickWins: quickWins.length,
+      },
+    };
+  }, [allSubitems]);
+
+  return { ...query, ...derived };
 }
 
 // Mutation: update subitem status
@@ -116,9 +98,10 @@ export function useStatusMutation() {
   return useMutation({
     mutationFn: ({ subitemBoardId, itemId, newStatus }) =>
       updateStatus(subitemBoardId, itemId, SUBITEM_COLUMNS.STATUS, newStatus),
-    onSuccess: (_data, variables) => {
+    onSuccess: () => {
+      // Invalidate server cache so next fetch gets fresh data
+      fetch('/api/boards/invalidate', { method: 'POST' }).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ['allBoards'] });
-      // Toast is handled by the component via onSuccess callback
     },
     onError: (error) => {
       console.error('Status update failed:', error);
@@ -133,6 +116,7 @@ export function usePostUpdate() {
   return useMutation({
     mutationFn: ({ itemId, body }) => apiPostUpdate(itemId, body),
     onSuccess: () => {
+      fetch('/api/boards/invalidate', { method: 'POST' }).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ['allBoards'] });
     },
     onError: (error) => {

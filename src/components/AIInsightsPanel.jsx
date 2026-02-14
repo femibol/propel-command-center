@@ -79,7 +79,7 @@ export default function AIInsightsPanel() {
     });
   }
 
-  // Fetch AI-powered coaching advice (haiku, fast)
+  // Fetch AI-powered coaching advice (haiku, fast) — deferred 2s so board data renders first
   useEffect(() => {
     if (!myActive || myActive.length === 0) return;
 
@@ -91,28 +91,32 @@ export default function AIInsightsPanel() {
       return;
     }
 
-    setAiLoading(true);
-    const clientNames = Object.keys(byClient || {}).slice(0, 10);
-    const topStale = stale.slice(0, 5).map(s => `${s.name} (${s._clientShort}, ${daysSince(s.updated_at)}d)`);
-    const topHigh = highPriority.slice(0, 5).map(s => `${s.name} (${s._clientShort})`);
+    const timer = setTimeout(() => {
+      setAiLoading(true);
+      const clientNames = Object.keys(byClient || {}).slice(0, 10);
+      const topStale = stale.slice(0, 5).map(s => `${s.name} (${s._clientShort}, ${daysSince(s.updated_at)}d)`);
+      const topHigh = highPriority.slice(0, 5).map(s => `${s.name} (${s._clientShort})`);
 
-    const dataSummary = `Total active: ${myActive.length}, High priority: ${highPriority.length}, Stale (5+d): ${stale.length}, Waiting: ${waiting.length}, Quick wins: ${quickWins.length}, Overdue follow-ups: ${overdueFollowups.length}, Nearly complete (80%+): ${nearlyComplete.length}. Clients: ${clientNames.join(', ')}. Top stale: ${topStale.join('; ')}. Top high-priority: ${topHigh.join('; ')}.`;
+      const dataSummary = `Total active: ${myActive.length}, High priority: ${highPriority.length}, Stale (5+d): ${stale.length}, Waiting: ${waiting.length}, Quick wins: ${quickWins.length}, Overdue follow-ups: ${overdueFollowups.length}, Nearly complete (80%+): ${nearlyComplete.length}. Clients: ${clientNames.join(', ')}. Top stale: ${topStale.join('; ')}. Top high-priority: ${topHigh.join('; ')}.`;
 
-    fetch('/api/ai/insights', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: dataSummary }),
-    })
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.insight) {
-          setAiAdvice(data.insight);
-          sessionStorage.setItem(cacheKey, data.insight);
-        }
+      fetch('/api/ai/insights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: dataSummary }),
       })
-      .catch(() => {}) // Silently fail — rule-based insights are always visible
-      .finally(() => setAiLoading(false));
-  }, [myActive?.length]); // Only re-fetch when item count changes
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.insight) {
+            setAiAdvice(data.insight);
+            sessionStorage.setItem(cacheKey, data.insight);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setAiLoading(false));
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [myActive?.length]);
 
   if (insights.length === 0 && !aiAdvice) return null;
 
